@@ -11,8 +11,8 @@ from frappe.utils import getdate
 
 
 class FeeValidity(Document):
-	def validate(self):
-		self.update_status()
+	#def validate(self):
+	#	self.update_status()
 
 	def update_status(self):
 		if getdate(self.valid_till) < getdate():
@@ -21,7 +21,8 @@ class FeeValidity(Document):
 			self.status = "Completed"
 		else:
 			self.status = "Active"
-
+	def cancel_fee_validity(self):
+		self.status = "Cancelled"
 
 def create_fee_validity(appointment):
 	if patient_has_validity(appointment):
@@ -29,6 +30,7 @@ def create_fee_validity(appointment):
 
 	fee_validity = frappe.new_doc("Fee Validity")
 	fee_validity.practitioner = appointment.practitioner
+	fee_validity.company = appointment.company
 	fee_validity.patient = appointment.patient
 	fee_validity.medical_department = appointment.department
 	fee_validity.patient_appointment = appointment.name
@@ -36,33 +38,70 @@ def create_fee_validity(appointment):
 		"Sales Invoice Item", {"reference_dn": appointment.name}, "parent"
 	)
 	fee_validity.max_visits = frappe.db.get_single_value("Healthcare Settings", "max_visits") or 1
-	valid_days = frappe.db.get_single_value("Healthcare Settings", "valid_days") or 1
-	fee_validity.visited = 0
+	fee_validity.visited = 1
+	if appointment.mode_of_payment:
+				valid_days = int(
+                    frappe.get_cached_value(
+                        "Healthcare Settings", "Healthcare Settings", "valid_days"
+                    )
+                )
+	else:
+		valid_days = int(
+			frappe.get_cached_value(
+				"Healthcare Insurance Coverage Plan",
+				{"coverage_plan_name": appointment.coverage_plan_name},
+				"no_of_days_for_follow_up",
+			)
+		)
+		if valid_days == 0:
+			valid_days = int(
+				frappe.get_cached_value(
+					"Healthcare Insurance Company",
+					appointment.insurance_company,
+					"no_of_days_for_follow_up",
+				)
+			)
+	# valid_days = frappe.db.get_single_value("Healthcare Settings", "valid_days") or 1
 	fee_validity.start_date = getdate(appointment.appointment_date)
 	fee_validity.valid_till = getdate(appointment.appointment_date) + datetime.timedelta(
 		days=int(valid_days)
 	)
 	fee_validity.save(ignore_permissions=True)
+	fee_validity.append("ref_appointments", {"appointment": appointment.name,"practitioner": appointment.practitioner,"status":"Active"})
+	fee_validity.save(ignore_permissions=True)
+	appointment.fee_validity = fee_validity.name
 	return fee_validity
 
-
 def patient_has_validity(appointment):
-	validity_exists = frappe.db.exists(
-		"Fee Validity",
-		{
-			"practitioner": appointment.practitioner,
+	filters = {
+			"company": appointment.company,
 			"patient": appointment.patient,
 			"status": "Active",
 			"valid_till": [">=", appointment.appointment_date],
 			"start_date": ["<=", appointment.appointment_date],
-		},
-	)
-
+		}
+	if appointment.insurance_company:
+		filters["sales_invoice_ref"] = ["is", "not set"]
+		if appointment.insurance_company in ("NHIF","NHIF Town","NHIF Upanga - RSPDC") or appointment.department == "General":
+			filters["medical_department"] = appointment.department
+		else:
+			filters["practitioner"] = appointment.practitioner
+	if appointment.mode_of_payment:
+		if appointment.department == "General":
+			filters["medical_department"] = appointment.department
+		else:
+			filters["practitioner"] = appointment.practitioner
+		filters["sales_invoice_ref"] = ["is", "set"]
+	validity_exists = frappe.db.exists(
+		"Fee Validity",
+		filters,
+		)
+	if not validity_exists:
+		return
+	appointment.fee_validity = validity_exists
 	return validity_exists
-
-
 @frappe.whitelist()
-def check_fee_validity(appointment, date=None, practitioner=None):
+def check_fee_validity(appointment, date=None, department=None):
 	if not frappe.db.get_single_value("Healthcare Settings", "enable_free_follow_ups"):
 		return
 
@@ -73,7 +112,7 @@ def check_fee_validity(appointment, date=None, practitioner=None):
 	date = getdate(date) if date else appointment.appointment_date
 
 	filters = {
-		"practitioner": practitioner if practitioner else appointment.practitioner,
+		"medical_department": department if department else appointment.department,
 		"patient": appointment.patient,
 		"valid_till": (">=", date),
 		"start_date": ("<=", date),
