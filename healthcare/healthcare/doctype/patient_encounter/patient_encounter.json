@@ -19,6 +19,8 @@
   "patient_age",
   "inpatient_record",
   "inpatient_status",
+  "insurance_company",
+  "encounter_type",
   "column_break_6",
   "company",
   "encounter_date",
@@ -60,6 +62,37 @@
    "options": "Inpatient Record",
    "read_only": 1
   },
+  {
+   "fieldname": "insurance_company",
+   "fieldtype": "Link",
+   "label": "Insurance Company",
+   "options": "Healthcare Insurance Company"
+  },
+    {
+    "fieldname": "encounter_type",
+    "fieldtype": "Link",
+    "label": "Encounter Type",
+    "options": "Encounter Category"
+      },
+      {
+  "doctype": "Custom Field",
+  "dt": "Patient Encounter",
+  "label": "Healthcare Package Order",
+  "fieldname": "healthcare_package_order",
+  "fieldtype": "Link",
+  "options": "Healthcare Package Order",
+  "insert_after": "insurance_company",
+  "fetch_from": "",
+  "read_only": 0,
+  "mandatory": 0,
+  "hidden": 0,
+  "print_hide": 0,
+  "allow_on_submit": 1,
+  "unique": 0,
+  "default": "",
+  "description": "Link to the Healthcare Package Order for this encounter"
+}
+    ,
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",

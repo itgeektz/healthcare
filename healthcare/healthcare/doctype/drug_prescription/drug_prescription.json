@@ -27,11 +27,11 @@
    "ignore_user_permissions": 1,
    "in_list_view": 1,
    "label": "Drug",
-   "options": "Item",
+   "options": "Medication",
    "reqd": 1
   },
   {
-   "fetch_from": "drug_code.item_name",
+   "fetch_from": "drug_code.medication_name",
    "fieldname": "drug_name",
    "fieldtype": "Data",
    "in_list_view": 1,

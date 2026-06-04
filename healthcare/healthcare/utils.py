@@ -582,10 +582,12 @@ def validate_invoiced_on_submit(item):
 		is_invoiced = frappe.db.get_value(item.reference_dt, item.reference_dn, "consumption_invoiced")
 	else:
 		is_invoiced = frappe.db.get_value(item.reference_dt, item.reference_dn, "invoiced")
+		
 	if is_invoiced:
+		#child = frappe.get_doc(item.reference_dt, item.reference_dn)
 		frappe.throw(
-			_("The item referenced by {0} - {1} is already invoiced").format(
-				item.reference_dt, item.reference_dn
+			_("The item referenced by {0} - {1} is already invoiced - value is {2}").format(
+				item.reference_dt, item.reference_dn, is_invoiced
 			)
 		)
 
